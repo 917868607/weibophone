@@ -15,6 +15,7 @@ from weibophone.items import MBlogItem, CommitInfoItem, UserInfoItem
 logger = logging.getLogger(__name__)
 
 
+
 class CheckItemPipeline(object):
 
     def process_item(self, item, spider):
@@ -49,36 +50,49 @@ class WeibophonePipeline(object):
         return cls.form_settings(crawler.settings)
 
     def process_item(self, item, spider):
-        d = self.dbpool.runInteraction(self._do_upsert, item, spider)
-        d.addErrback(self._handle_error, item, spider)
-        d.addBoth(lambda _: item)
-        return d
-
-    def _do_upsert(self, conn, item, spider):
         if isinstance(item, MBlogItem):
             table_name = "mblog"
             sql = self._generate_sql(table_name, item)
-            conn.execute(sql)
-            logger.warning(f"{table_name} item已存储到数据")
+            self.dbpool_execute(sql).addCallback(self.printresult)
+            # conn.execute(sql)
             return item
         if isinstance(item, UserInfoItem):
             table_name = "user"
             sql = self._generate_sql(table_name, item)
-            conn.execute(sql)
-            logger.warning(f"{table_name} item已存储到数据")
+            self.dbpool_execute(sql).addCallback(self.printresult)
+            # conn.execute(sql)
             return item
         if isinstance(item, CommitInfoItem):
             table_name = "commit"
             sql = self._generate_sql(table_name, item)
-            conn.execute(sql)
-            logger.warning(f"{table_name} item已存储到数据")
+            self.dbpool_execute(sql).addCallback(self.printresult)
+            # conn.execute(sql)
             return item
 
-    def _handle_error(self, failure, item, spider):
-        """Handle occurred on db interaction."""
-        # do nothing, just log
-        logger.error(item)
-        logger.error(failure)
+    # def _do_upsert(self, conn, item, spider):
+    #     if isinstance(item, MBlogItem):
+    #         table_name = "mblog"
+    #         sql = self._generate_sql(table_name, item)
+    #         self.dbpool_execute(sql).addCallback(self.printresult)
+    #         # conn.execute(sql)
+    #         return item
+    #     if isinstance(item, UserInfoItem):
+    #         table_name = "user"
+    #         sql = self._generate_sql(table_name, item)
+    #         # conn.execute(sql)
+    #         return item
+    #     if isinstance(item, CommitInfoItem):
+    #         table_name = "commit"
+    #         sql = self._generate_sql(table_name, item)
+    #         self.dbpool_execute(sql).addCallback(self.printresult)
+    #         # conn.execute(sql)
+    #         return item
+    #
+    # def _handle_error(self, failure, item, spider):
+    #     """Handle occurred on db interaction."""
+    #     # do nothing, just log
+    #     logger.error(item)
+    #     logger.error(failure)
 
     def _generate_sql(self, table_name, item):
         col_str = ''
@@ -99,13 +113,12 @@ class WeibophonePipeline(object):
         sql = sql[:-2]
         return sql
 
-    # def execute(self, txn, sql):
-    #     result = txn.execute(sql)
-    #     return result
-    #
-    # def dbpool_execute(self, sql):
-    #     return self.dbpool.runInteraction(self.execute, sql)
-    #
-    # def printresult(self, age):
-    #
-    #     pass
+    def execute(self, txn, sql):
+        result = txn.execute(sql)
+        return result
+
+    def dbpool_execute(self, sql):
+        return self.dbpool.runInteraction(self.execute, sql)
+
+    def printresult(self, age):
+        logger.warning(age)

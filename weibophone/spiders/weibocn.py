@@ -3,6 +3,7 @@ import re
 import time
 import redis
 import logging
+from urllib.parse import urljoin
 from copy import deepcopy
 
 from scrapy import Request
@@ -10,8 +11,6 @@ from scrapy.cmdline import execute
 from scrapy.utils.project import get_project_settings
 
 from scrapy_redis.spiders import RedisSpider
-
-from urllib.parse import urljoin
 
 from weibophone.items import UserInfoItem, MBlogItem, CommitInfoItem
 from weibophone.common.public import get_uid, get_count
@@ -21,7 +20,7 @@ logger = logging.getLogger()
 
 project = get_project_settings()
 
-M_BLOG_TIME = 1514736000.0
+M_BLOG_TIME = 1522425600.0
 
 
 class WeiBoCN(RedisSpider):
@@ -34,7 +33,7 @@ class WeiBoCN(RedisSpider):
         self.redis_conn = redis.from_url(project.get('REDIS_URL'), encoding='utf-8')
 
     def start_requests(self):
-        yield Request("https://weibo.cn/1713926427/follow",
+        yield Request("https://weibo.cn/2142058927/follow",
                       callback=self.parse, dont_filter=True)
 
     def parse(self, response):
@@ -54,14 +53,14 @@ class WeiBoCN(RedisSpider):
 
         else:
             #   此处注释用于向Redis添加起始URL
-            p = self.redis_conn.pipeline()
-            for follow_uid in friends:
-                new_start_url = f"https://weibo.cn/{follow_uid}/follow"
-                p.lpush('weibocn:start_urls', new_start_url)
-            else:
-                p.execute()
+            # p = self.redis_conn.pipeline()
+            # for follow_uid in friends:
+            #     new_start_url = f"https://weibo.cn/{follow_uid}/follow"
+            #     p.lpush('weibocn:start_urls', new_start_url)
+            # else:
+            #     p.execute()
             index_url = response.url.replace("/follow", '')
-            yield Request(index_url, callback=self.user_index, meta={'friends': friends})
+            yield Request(index_url, callback=self.user_index, meta={'friends': friends}, dont_filter=True)
 
     def user_index(self, response):
         """解析用户主页资料
@@ -81,7 +80,11 @@ class WeiBoCN(RedisSpider):
         followers_count = get_count(response, 'a', '粉丝')
         # followers_count = response.xpath("substring-after(substring-before(.//a[contains(text(), "
         #                                  "'粉丝[')]/text(), ']'), '[')")
-        info_url = re.sub('\?.*', '/info', response.url)
+        # 有些傻逼一个都不关注 根本没朋友 需要区别一下 分别构造URL
+        if friends:
+            info_url = re.sub('\?.*', '/info', response.url)
+        else:
+            info_url = response.url + '/info'
         yield Request(info_url,
                       callback=self.user_info,
                       meta={
@@ -126,9 +129,14 @@ class WeiBoCN(RedisSpider):
         #   获取用户主页的博文URL
         uid = response.meta.get('uid')
         m_blog_urls = response.xpath(".//a[contains(text(), '评论[')]/@href").extract()
+        # 防止采集转发微博的原内容
+        m_blog_urls = [i for i in m_blog_urls if 'uid=' in i]
         #   下一页地址
-        at = response.xpath(".//a[contains(text(),'评论[')]/following-sibling::span/text()").extract_first(0)
+        at = response.xpath(".//a[contains(text(),'评论[')]/following-sibling::span/text()").getall()[-1]
+        # 处理字符时间后面有来自啥啥啥的东东
         at = at.strip()
+        if '来自' in at:
+            at = at.split('\xa0')[0]
         at = time_conversion_main(at)
         at = time.mktime(time.strptime(at, '%Y-%m-%d %H:%M:%S'))
         next_url = response.xpath(".//a[text()='下页']/@href").extract_first(False)
