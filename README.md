@@ -55,4 +55,4 @@ DOWNLOADER_MIDDLEWARES = {
 
 **Note2: Pipeline中Twisted adbapi 入MySQL库没有做断线重连机制**
 
-**Note3：Cookie借助于Cookie池项目**
+**Note3：Cookie借助于Cookie池项目 暂可使用默认settings.py的Cookies配置  我尽量维护其可用性**

@@ -116,8 +116,8 @@ SCHEDULER_PERSIST = True
 REDIS_URL = 'redis://user:XXXXX@XXXXXXXXXX:6379'
 
 # Cookie池地址
-GET_COOKIE_URL = "http://XXXXXXXXXX:8080/weibo/random"
-DELETE_COOKIE_URL = "http://XXXXX:8080/weibo/delete/{}"
+GET_COOKIE_URL = "http://118.24.111.245:8080/weibo/random"
+DELETE_COOKIE_URL = "http://118.24.111.245:8080/weibo/delete/{}"
 
 # 代理配置
 PROXY_SERVER = "http://http-dyn.abuyun.com:9020"
